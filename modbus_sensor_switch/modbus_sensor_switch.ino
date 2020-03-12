@@ -53,6 +53,8 @@ unsigned long lastInputTime[2] = { 0, 0 };
 
 Modbus slave(SLAVE_ID, RS485_TX_ENABLE_PIN);
 
+HardwareTimer *timer1;
+
 void setup() {
   IWatchdog.begin(WATCHDOG_TIMEOUT);
 
@@ -62,6 +64,8 @@ void setup() {
   pinMode(OUTPUT1_PIN, OUTPUT);
   pinMode(OUTPUT2_PIN, OUTPUT);
 
+  initPWM();
+  
   Wire.begin();
   initHTU21D();
 
@@ -78,18 +82,20 @@ void setup() {
 
 void loop() {
   readInputs();
-  
+ 
   holdingRegister[CO2_LEVEL] = getT6703Data();
-  Serial.print("Temp: ");
+  
+  //Serial.print("Temp: ");
   holdingRegister[TEMPERATURE] = readTemperature() * 10;
-  Serial.println(holdingRegister[TEMPERATURE]);
-  Serial.print("Humidity: ");
+  
+ // Serial.println(holdingRegister[TEMPERATURE]);
+  //Serial.print("Humidity: ");
   holdingRegister[HUMIDITY] = readCompensatedHumidity(holdingRegister[TEMPERATURE]);
-  Serial.println(holdingRegister[HUMIDITY]);
+//  Serial.println(holdingRegister[HUMIDITY]);
 
-  Serial.print("Light: ");
+// Serial.print("Light: ");
   holdingRegister[LIGHT_LEVEL] = readLightLevel(); 
-  Serial.println(holdingRegister[LIGHT_LEVEL]);
+//  Serial.println(holdingRegister[LIGHT_LEVEL]);
   
   slave.poll();
 
@@ -106,15 +112,19 @@ void readInput(uint8_t pin, uint8_t output) {
   if ((value == HIGH) && (previousInputState[output] == LOW) && (millis() - lastInputTime[output] > INPUT_DEBOUNCE)) {
     outputState[output] = !outputState[output];
     lastInputTime[output] = millis();
-    setOutput(pin, output);
+    if (pin == OUTPUT1_PIN) {
+      setOutput1();
+    } else {
+      setOutput2();  
+    }
   }
   previousInputState[output] = value;
 }
 
 uint8_t readDigitalOut(uint8_t fc, uint16_t address, uint16_t length) {
-   slave.writeCoilToBuffer(OUT1_STATE, outputState[OUT1_STATE]);
-   slave.writeCoilToBuffer(OUT2_STATE, outputState[OUT2_STATE]);
-   return STATUS_OK;
+  slave.writeCoilToBuffer(OUT1_STATE, outputState[OUT1_STATE]);
+  slave.writeCoilToBuffer(OUT2_STATE, outputState[OUT2_STATE]);
+  return STATUS_OK;
 }
 
 /**
@@ -125,8 +135,8 @@ uint8_t writeDigitalOut(uint8_t fc, uint16_t address, uint16_t length) {
   outputState[OUT1_STATE] = slave.readCoilFromBuffer(OUT1_STATE);
   outputState[OUT2_STATE] = slave.readCoilFromBuffer(OUT2_STATE);
   
-  setOutput(OUTPUT1_PIN, OUT1_STATE);
-  setOutput(OUTPUT2_PIN, OUT2_STATE);
+  setOutput1();
+  setOutput2();
   return STATUS_OK;
 }
 
@@ -153,8 +163,16 @@ uint8_t writeHolding(uint8_t fc, uint16_t address, uint16_t length) {
   return STATUS_OK;
 }
 
-void setOutput(uint8_t pin, uint8_t output) { 
-  analogWrite(pin, outputState[output] ? holdingRegister[OUT1_LEVEL] : 0);  
+void setOutput1() { 
+  uint8_t value = outputState[OUT1_STATE] ? holdingRegister[OUT1_LEVEL] : 0;  
+  uint32_t channel = STM_PIN_CHANNEL(pinmap_function(digitalPinToPinName(OUTPUT1_PIN), PinMap_PWM));
+  timer1->setPWM(channel, OUTPUT1_PIN, PWM_FREQUENCY, value);
+}
+
+void setOutput2() { 
+  uint8_t value = outputState[OUT2_STATE] ? holdingRegister[OUT2_LEVEL] : 0;  
+  uint32_t channel = STM_PIN_CHANNEL(pinmap_function(digitalPinToPinName(OUTPUT2_PIN), PinMap_PWM));
+  timer1->setPWM(channel, OUTPUT2_PIN, PWM_FREQUENCY, value);
 }
 
 uint16_t getT6703Data() {
@@ -204,14 +222,12 @@ float readTemperature() {
 
   Wire.beginTransmission(HTU21D_I2C_ADDRESS);
   Wire.write(HTU21D_TRIGGER_TEMP_MEASURE_HOLD);
-
   if (Wire.endTransmission(true) != 0) return I2C_ERROR;
-  
+
   delay(22);
- 
+
   Wire.requestFrom(HTU21D_I2C_ADDRESS, qntRequest);
   if (Wire.available() != qntRequest) return I2C_ERROR;
-
   rawTemperature = Wire.read() << 8;
   rawTemperature |= Wire.read();
   checksum = Wire.read();
@@ -269,10 +285,9 @@ float readHumidity() {
   return humidity;
 }
 
-void initBH1750() {
-  Wire.beginTransmission(BH1750_I2C_ADDRESS);
-  Wire.write(BH1750_ONE_TIME_LOW_RES_MODE);
-  Wire.endTransmission(true);
+void initPWM() {
+  TIM_TypeDef *instance = (TIM_TypeDef *)pinmap_peripheral(digitalPinToPinName(OUTPUT1_PIN), PinMap_PWM);
+  timer1 = new HardwareTimer(instance);
 }
 
 float readLightLevel() {
