@@ -109,7 +109,7 @@ WEAK void SystemClock_Config(void)
   RCC_OscInitStruct.HSI14CalibrationValue = 16;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
-#ifdef ARDUINO_DEMO_F030F4_16M
+#ifdef ARDUINO_DEMO_F070F6_16M
   RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV2;
 #else
   RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
