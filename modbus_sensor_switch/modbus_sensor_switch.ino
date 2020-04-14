@@ -1,9 +1,9 @@
-//#include <ModbusSlave.h>
+#include <ModbusSlave.h>
 #include <Wire.h>
 #include <OneButton.h>
 
 #define SLAVE_ID 1
-#define RS485_BAUDRATE 115200//9600
+#define RS485_BAUDRATE 9600
 
 #define T6703_I2C_ADDRESS 0x15
 #define HTU21D_I2C_ADDRESS 0x40
@@ -23,7 +23,7 @@
 
 #define I2C_ERROR 0xFF
 
-//#define RS485_TX_ENABLE_PIN PA12
+#define RS485_TX_ENABLE_PIN PA12
 
 #define I2C_SDA PB7
 #define I2C_SCL PB6
@@ -36,8 +36,6 @@
 
 const uint8_t OUT1_STATE = 0;
 const uint8_t OUT2_STATE = 1;
-const uint8_t OUT1_LEVEL = 0;
-const uint8_t OUT2_LEVEL = 1;
 const uint8_t CO2_LEVEL = 2;
 const uint8_t TEMPERATURE = 3;
 const uint8_t HUMIDITY = 4;
@@ -55,14 +53,14 @@ const uint8_t OUTPUT_LOG[56] =
 const uint8_t PERIODICAL_TIMER_FREQUENCY = 1; //1HZ
 
 uint8_t outputState[2] = { LOW, LOW }; //{ OUT1_STATE, OUT2_STATE }
-uint16_t holdingRegister[HOLDING_COUNT] = { 55, 55, 0, 0, 0, 0 }; //{ OUT1_LEVEL, OUT2_LEVEL, CO2_LEVEL, TEMPERATURE, HUMIDITY, LIGHT_LEVEL }
+uint16_t holdingRegister[HOLDING_COUNT] = { 55, 55, 0, 0, 0, 0 }; //{ OUT1_STATE, OUT2_STATE, CO2_LEVEL, TEMPERATURE, HUMIDITY, LIGHT_LEVEL }
 
 uint8_t dimmerDirection[2] = { LOW, LOW };
 uint16_t pressCounter[2] = { 0, 0 };
 
 float temp;
 
-//Modbus slave(SLAVE_ID, RS485_TX_ENABLE_PIN);
+Modbus slave(SLAVE_ID, RS485_TX_ENABLE_PIN);
 OneButton button1(INPUT1_PIN, true, false);
 OneButton button2(INPUT2_PIN, true, false);
 HardwareTimer *timer1;
@@ -75,69 +73,77 @@ void setup() {
   initBH1750();
   initHTU21D();
 
-//  slave.cbVector[CB_READ_COILS] = readDigitalOut;
-//  slave.cbVector[CB_WRITE_COILS] = writeDigitalOut;
-//  slave.cbVector[CB_READ_HOLDING_REGISTERS] = readHolding;
-//  slave.cbVector[CB_WRITE_HOLDING_REGISTERS] = writeHolding;
+  slave.cbVector[CB_READ_COILS] = readDigitalOut;
+  slave.cbVector[CB_WRITE_COILS] = writeDigitalOut;
+  slave.cbVector[CB_READ_HOLDING_REGISTERS] = readHolding;
+  slave.cbVector[CB_WRITE_HOLDING_REGISTERS] = writeHolding;
 
   Serial.setRx(PA3);
   Serial.setTx(PA2);
   Serial.begin(RS485_BAUDRATE);
- // slave.begin(RS485_BAUDRATE);
+  slave.begin(RS485_BAUDRATE);
 }
 
 void loop() {
   button1.tick();
   button2.tick();
-  
- // slave.poll();
-
+  slave.poll();
 }
-/*
+
 uint8_t readDigitalOut(uint8_t fc, uint16_t address, uint16_t length) {
   slave.writeCoilToBuffer(OUT1_STATE, outputState[OUT1_STATE]);
   slave.writeCoilToBuffer(OUT2_STATE, outputState[OUT2_STATE]);
   return STATUS_OK;
 }
-*/
+
 /**
  * set digital output pins (coils).
  */
- /*
 uint8_t writeDigitalOut(uint8_t fc, uint16_t address, uint16_t length) {
-  outputState[OUT1_STATE] = slave.readCoilFromBuffer(OUT1_STATE);
-  outputState[OUT2_STATE] = slave.readCoilFromBuffer(OUT2_STATE);
-  
-  setOutput1();
-  setOutput2();
+  uint8_t lastOutputState1 = outputState[OUT1_STATE];
+  uint8_t lastOutputState2 = outputState[OUT2_STATE];
+
+  for (uint16_t i = 0; i < length; i++) {
+    outputState[i + address] = slave.readCoilFromBuffer(i);
+  }
+
+  if (outputState[OUT1_STATE] != lastOutputState1) {
+    fadeOutput(OUTPUT1_PIN, OUT1_STATE);
+  }  
+  if (outputState[OUT2_STATE] != lastOutputState2) {
+    fadeOutput(OUTPUT2_PIN, OUT2_STATE);
+  }  
   return STATUS_OK;
 }
-*/
 /**
  * Handle Read Holding Registers (FC=03)
- * write back the values from eeprom (holding registers).
  */
- /*
 uint8_t readHolding(uint8_t fc, uint16_t address, uint16_t length) {
-  for (int i = 0; i < HOLDING_COUNT; i++) {
+  for (uint16_t i = 0; i < HOLDING_COUNT; i++) {
     slave.writeRegisterToBuffer(i, holdingRegister[i]);
   }
   return STATUS_OK;
 }
-*/
 /**
  * Handle Write Holding Register(s) (FC=06, FC=16)
- * write data into eeprom.
  */
- /*
 uint8_t writeHolding(uint8_t fc, uint16_t address, uint16_t length) {
-  uint16_t value;
-  for (int i = 0; i < HOLDING_COUNT; i++) {
-    holdingRegister[i] = slave.readRegisterFromBuffer(i);
+  uint8_t lastOutputLevel1 = holdingRegister[OUT1_STATE];
+  uint8_t lastOutputLevel2 = holdingRegister[OUT2_STATE];
+  for (uint16_t i = 0; i < length; i++) {
+    uint16_t value = slave.readRegisterFromBuffer(i);
+    if (value <= OUTPUT_STEPS) {
+      holdingRegister[i + address] = value;
+    }  
   }
+  if (holdingRegister[OUT1_STATE] != lastOutputLevel1) {
+    setOutput(OUTPUT1_PIN, holdingRegister[OUT1_STATE]);
+  }  
+  if (holdingRegister[OUT2_STATE] != lastOutputLevel2) {
+    setOutput(OUTPUT2_PIN, holdingRegister[OUT2_STATE]);
+  }  
   return STATUS_OK;
 }
-*/
 
 uint16_t getT6703Data() {
   uint8_t rawData[5] = {0x04, 0x13, 0x8B, 0x00, 0x01};
@@ -288,30 +294,19 @@ void initBH1750() {
 }
 
 void updateSensors() {
-  Serial.print("CO2: ");
   holdingRegister[CO2_LEVEL] = getT6703Data();
-  Serial.println(holdingRegister[CO2_LEVEL]);
-  Serial.print("Temp: ");
-
+  
   temp = readTemperature();
   holdingRegister[TEMPERATURE] = temp * 10;
   
-  Serial.println(holdingRegister[TEMPERATURE]);
-  Serial.print("Humidity: ");
-  holdingRegister[HUMIDITY] = readCompensatedHumidity(temp);
-  Serial.println(holdingRegister[HUMIDITY]);
-
-  Serial.print("Light: ");
+  holdingRegister[HUMIDITY] = readCompensatedHumidity(temp);  
   holdingRegister[LIGHT_LEVEL] = readLightLevel(); 
-  Serial.println(holdingRegister[LIGHT_LEVEL]);
 }
 
 float readLightLevel() {
-  unsigned int level;
-
   Wire.beginTransmission(BH1750_I2C_ADDRESS);
   Wire.requestFrom(BH1750_I2C_ADDRESS, 2);
-  level = Wire.read();
+  uint16_t level = Wire.read();
   level <<= 8;
   level |= Wire.read();
   Wire.endTransmission();
@@ -338,11 +333,13 @@ void setOutput(uint8_t pin, uint8_t value) {
 }
 
 void clickButton1() {
-  clickButton(OUTPUT1_PIN, OUT1_STATE);
+  outputState[OUT1_STATE] = !outputState[OUT1_STATE];
+  fadeOutput(OUTPUT1_PIN, OUT1_STATE);
 }
 
 void clickButton2() {
-  clickButton(OUTPUT2_PIN, OUT2_STATE);
+  outputState[OUT2_STATE] = !outputState[OUT2_STATE];
+  fadeOutput(OUTPUT2_PIN, OUT2_STATE);
 }
 
 void duringLongPressButton1() {
@@ -353,8 +350,7 @@ void duringLongPressButton2() {
   duringLongPressButton(OUTPUT2_PIN, OUT2_STATE);
 }
 
-void clickButton(uint8_t pin, uint8_t button) {
-  outputState[button] = !outputState[button];
+void fadeOutput(uint8_t pin, uint8_t button) {
   uint8_t value = holdingRegister[button];
   if (outputState[button]) {
     for (uint8_t i = 0; i <= value; i++) {
