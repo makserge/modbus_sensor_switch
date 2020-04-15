@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include <OneButton.h>
 
-#define SLAVE_ID 1
+#define SLAVE_ID 10
 #define RS485_BAUDRATE 9600
 
 #define T6703_I2C_ADDRESS 0x15
@@ -78,8 +78,8 @@ void setup() {
   slave.cbVector[CB_READ_HOLDING_REGISTERS] = readHolding;
   slave.cbVector[CB_WRITE_HOLDING_REGISTERS] = writeHolding;
 
-  Serial.setRx(PA3);
-  Serial.setTx(PA2);
+  Serial.setRx(PA10);
+  Serial.setTx(PA9);
   Serial.begin(RS485_BAUDRATE);
   slave.begin(RS485_BAUDRATE);
 }
