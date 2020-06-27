@@ -38,38 +38,29 @@ extern "C" {
 // This array allows to wrap Arduino pin number(Dx or x)
 // to STM32 PinName (PX_n)
 const PinName digitalPin[] = {
-//PX_n, //Dx
-	//.with.the.USB.on.the.bottom.and.left-to-right-to-top.naming;
-	// left.side
-	PA_8,
-	PA_9,
-	PA_10,
-	PA_11,
-	PA_12,
-	PA_15,
-	PB_3,
-	PB_4,
-	PB_5,
-	PB_6,
-	PB_7,
-	// Bottom.side
-//USB
-	// Right.side
-	PA_0,
-	PA_1,
-	PA_2,
-	PA_3,
-	PA_4,
-	PA_5,
-	PA_6,
-	PA_7,
-	PB_0,
-	PB_1,
-	// top.stlink
-	PA_13,
-	PA_14,
-	// Duplicated pins in order to be aligned with PinMap_ADC
-	// A0 have to be greater than NUM_ANALOG_INPUTS
+  PA_10, //D0
+  PA_9,  //D1
+  PA_12, //D2
+  PB_0,  //D3
+  PB_7,  //D4
+  PB_6,  //D5
+  PB_1,  //D6
+  PF_0,  //D7
+  PF_1,  //D8
+  PA_8,  //D9
+  PA_11, //D10
+  PB_5,  //D11
+  PB_4,  //D12
+  PB_3,  //D13
+  PA_0,  //D14/A0
+  PA_1,  //D15/A1
+  PA_3,  //D16/A2
+  PA_4,  //D17/A3
+  PA_5,  //D18/A4
+  PA_6,  //D19/A5
+  PA_7,  //D20/A6
+  PA_2,  //D21
+  PA_15  //D22
 };
 
 #ifdef __cplusplus
@@ -89,35 +80,30 @@ extern "C" {
   */
 WEAK void SystemClock_Config(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  /* Initializes the CPU, AHB and APB busses clocks */
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI14 | RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.HSI14State = RCC_HSI14_ON;
-  RCC_OscInitStruct.HSI14CalibrationValue = 16;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
-#ifdef ARDUINO_DEMO_F051K8_16M
-  RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV2;
-#else
-  RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
-#endif
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-    _Error_Handler(__FILE__, __LINE__);
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
   }
-
-  /* Initializes the CPU, AHB and APB busses clocks */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-                                | RCC_CLOCKTYPE_PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK) {
-    _Error_Handler(__FILE__, __LINE__);
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  {
+    Error_Handler();
   }
 }
 
