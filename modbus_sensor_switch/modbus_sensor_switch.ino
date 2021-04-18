@@ -45,9 +45,9 @@ const uint8_t HOLDING_COUNT = 6;
 
 const uint8_t OUTPUT_STEPS = 55;
 const uint8_t OUTPUT_LOG[56] =
-{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19,
-  20, 22, 23, 24, 25, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56,
-  59, 61, 63, 66, 69, 71, 74, 76, 79, 82, 85, 88, 91, 94, 97, 100
+{ 100, 97, 94, 91, 88, 85, 82, 79, 76, 74, 71, 69, 66, 63, 61, 59,
+  56, 54, 52, 50, 48, 46, 44, 42, 40, 38, 36, 34, 32, 30, 28, 26, 25, 24, 23, 22, 20,
+  19, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 };
 
 const uint8_t PERIODICAL_TIMER_FREQUENCY = 1; //1HZ
@@ -66,8 +66,8 @@ OneButton button2(INPUT2_PIN, true, false);
 HardwareTimer *timer1;
 
 void setup() {
-  initButtons();
   initPWM();
+  initButtons();
   initPeriodicalTimer();
   initI2C();
   initBH1750();
@@ -321,6 +321,9 @@ void initButtons() {
   pinMode(OUTPUT1_PIN, OUTPUT);
   pinMode(OUTPUT2_PIN, OUTPUT);
 
+  setOutput(OUTPUT1_PIN, holdingRegister[OUT1_STATE]);
+  setOutput(OUTPUT2_PIN, holdingRegister[OUT2_STATE]);
+
   button1.attachClick(clickButton1);
   button1.attachDuringLongPress(duringLongPressButton1);
   button2.attachClick(clickButton2);
@@ -355,12 +358,12 @@ void fadeOutput(uint8_t pin, uint8_t button) {
   if (outputState[button]) {
     for (uint8_t i = 0; i <= value; i++) {
       setOutput(pin, i);
-      delay(10);
+      delay(40);
     }
   } else {
     for (int8_t i = value; i >= 0; i--) {
       setOutput(pin, i);
-      delay(10);
+      delay(40);
     }
   }
 }
