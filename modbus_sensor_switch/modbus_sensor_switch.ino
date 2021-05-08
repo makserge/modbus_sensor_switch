@@ -137,9 +137,11 @@ uint8_t writeHolding(uint8_t fc, uint16_t address, uint16_t length) {
     }  
   }
   if (holdingRegister[OUT1_STATE] != lastOutputLevel1) {
+    outputState[OUT1_STATE] = holdingRegister[OUT1_STATE] > 0;
     setOutput(OUTPUT1_PIN, holdingRegister[OUT1_STATE]);
   }  
   if (holdingRegister[OUT2_STATE] != lastOutputLevel2) {
+    outputState[OUT2_STATE] = holdingRegister[OUT2_STATE] > 0;
     setOutput(OUTPUT2_PIN, holdingRegister[OUT2_STATE]);
   }  
   return STATUS_OK;
@@ -321,8 +323,8 @@ void initButtons() {
   pinMode(OUTPUT1_PIN, OUTPUT);
   pinMode(OUTPUT2_PIN, OUTPUT);
 
-  setOutput(OUTPUT1_PIN, holdingRegister[OUT1_STATE]);
-  setOutput(OUTPUT2_PIN, holdingRegister[OUT2_STATE]);
+  setOutput(OUTPUT1_PIN, 0);
+  setOutput(OUTPUT2_PIN, 0);
 
   button1.attachClick(clickButton1);
   button1.attachDuringLongPress(duringLongPressButton1);
@@ -358,12 +360,12 @@ void fadeOutput(uint8_t pin, uint8_t button) {
   if (outputState[button]) {
     for (uint8_t i = 0; i <= value; i++) {
       setOutput(pin, i);
-      delay(40);
+      delay(15);
     }
   } else {
     for (int8_t i = value; i >= 0; i--) {
       setOutput(pin, i);
-      delay(40);
+      delay(15);
     }
   }
 }
