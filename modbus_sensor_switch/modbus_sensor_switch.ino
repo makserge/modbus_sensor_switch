@@ -43,17 +43,17 @@ const uint8_t LIGHT_LEVEL = 5;
 
 const uint8_t HOLDING_COUNT = 6;
 
-const uint8_t OUTPUT_STEPS = 55;
-const uint8_t OUTPUT_LOG[56] =
-{ 100, 97, 94, 91, 88, 85, 82, 79, 76, 74, 71, 69, 66, 63, 61, 59,
-  56, 54, 52, 50, 48, 46, 44, 42, 40, 38, 36, 34, 32, 30, 28, 26, 25, 24, 23, 22, 20,
-  19, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
+const uint8_t OUTPUT_STEPS = 100;
+const uint8_t OUTPUT_LOG[101] =
+{ 100, 100, 97, 97, 94, 94, 91, 91, 88, 88, 85, 85, 82, 82, 79, 79, 76, 76, 74, 74, 71, 71, 69, 69, 66, 66, 63, 63, 61, 61, 59, 59,
+  56, 56, 54, 54, 52, 52, 50, 50, 48, 48, 46, 46, 44, 44, 42, 42, 40, 40, 38, 38, 36, 36, 34, 34, 32, 32, 30, 30, 28, 28, 26, 26, 25, 25, 24, 24, 23, 23, 22, 22, 20, 20,
+  19, 19, 17, 17, 16, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10, 9, 9, 8, 8, 7, 7, 6, 6, 5
 };
 
 const uint8_t PERIODICAL_TIMER_FREQUENCY = 1; //1HZ
 
 uint8_t outputState[2] = { LOW, LOW }; //{ OUT1_STATE, OUT2_STATE }
-uint16_t holdingRegister[HOLDING_COUNT] = { 55, 55, 0, 0, 0, 0 }; //{ OUT1_STATE, OUT2_STATE, CO2_LEVEL, TEMPERATURE, HUMIDITY, LIGHT_LEVEL }
+uint16_t holdingRegister[HOLDING_COUNT] = { 100, 100, 0, 0, 0, 0 }; //{ OUT1_STATE, OUT2_STATE, CO2_LEVEL, TEMPERATURE, HUMIDITY, LIGHT_LEVEL }
 
 uint8_t dimmerDirection[2] = { LOW, LOW };
 uint16_t pressCounter[2] = { 0, 0 };
@@ -91,8 +91,10 @@ void loop() {
 }
 
 uint8_t readDigitalOut(uint8_t fc, uint16_t address, uint16_t length) {
-  slave.writeCoilToBuffer(OUT1_STATE, outputState[OUT1_STATE]);
-  slave.writeCoilToBuffer(OUT2_STATE, outputState[OUT2_STATE]);
+  for (int i = 0; i < length; i++) {
+    slave.writeCoilToBuffer(i, outputState[i + address]);
+  }
+
   return STATUS_OK;
 }
 
@@ -119,8 +121,8 @@ uint8_t writeDigitalOut(uint8_t fc, uint16_t address, uint16_t length) {
  * Handle Read Holding Registers (FC=03)
  */
 uint8_t readHolding(uint8_t fc, uint16_t address, uint16_t length) {
-  for (uint16_t i = 0; i < HOLDING_COUNT; i++) {
-    slave.writeRegisterToBuffer(i, holdingRegister[i]);
+  for (uint16_t i = 0; i < length; i++) {
+    slave.writeRegisterToBuffer(i, holdingRegister[i + address]);
   }
   return STATUS_OK;
 }
